@@ -1,6 +1,5 @@
 import { Link } from 'react-router-dom';
 import silhouetteImage from './assets/phoenix-rebirth-silhouette.png'; // Reuse existing image
-
 function LandingPage() {
   return (
     <div className="landing-container">
@@ -41,5 +40,4 @@ function LandingPage() {
     </div>
   );
 }
-
 export default LandingPage;

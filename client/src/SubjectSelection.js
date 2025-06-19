@@ -8,47 +8,66 @@ function SubjectSelection() {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const BASE_URL = 'https://phoenix-learning-backend-b4ea6248c81b.herokuapp.com';
+  const BASE_URL = 'https://phoenix-learning-backend.herokuapp.com'; // Corrected per your clarification
 
-  useEffect(() => {
-    setIsLoading(true);
-    const token = localStorage.getItem('token');
-    if (!token) {
-      console.log('No token found, redirecting to login');
-      navigate('/login', { replace: true });
-      return;
-    }
-    console.log('Using token for subjects:', token);
+useEffect(() => {
+  setIsLoading(true);
+  const token = localStorage.getItem('token');
+  if (!token) {
+    console.log('No token found, redirecting to login');
+    navigate('/login', { replace: true });
+    return;
+  }
+  console.log('Using token for subjects:', token);
 
-    const fetchSubjects = async () => {
-      try {
-        const res = await axios.get(`${BASE_URL}/user-subjects`, {
+  const fetchSubjectsAndLibraries = async () => {
+    try {
+      const [subjectsRes, librariesRes] = await Promise.all([
+        axios.get(`${BASE_URL}/user-subjects`, {
           headers: { Authorization: `Bearer ${token}` },
-        });
-        console.log('Subjects response:', res.data);
-        setSubjects(res.data || []);
-      } catch (err) {
-        console.error('Fetch subjects error:', err.response?.data || err.message);
-        setError('Failed to load subjects: ' + (err.response?.data?.error || err.message));
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchSubjects();
-  }, [navigate]);
+          withCredentials: true, // Add this line
+        }),
+        axios.get(`${BASE_URL}/study-libraries`, {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true, // Add this line
+        }),
+      ]);
+      console.log('Subjects response:', subjectsRes.data);
+      console.log('Libraries response:', librariesRes.data);
+      const subjectsData = Array.isArray(subjectsRes.data) ? subjectsRes.data : subjectsRes.data?.data || [];
+      const librariesData = Array.isArray(librariesRes.data) ? librariesRes.data : librariesRes.data?.data || [];
+      const allSubjects = [
+        ...subjectsData.map((s) => ({ subject: s, question_count: 0, type: 'subject' })),
+        ...librariesData.map((lib) => ({
+          id: lib.id || lib.library_id,
+          subject: lib.name || lib.library_name,
+          question_count: lib.question_count || 0,
+          type: 'library',
+        })),
+      ];
+      setSubjects(allSubjects);
+    } catch (err) {
+      console.error('Fetch subjects or libraries error:', err.response?.data || err.message);
+      setError('Failed to load subjects or libraries: ' + (err.response?.data?.error || err.message || 'Unknown error'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  fetchSubjectsAndLibraries();
+}, [navigate]);
 
   const handleSubjectSelect = (subject) => {
-    navigate('/study', { state: { selectedSubject: subject } });
+    navigate('/study', { state: { selectedSubject: subject.subject, type: subject.type, id: subject.id } });
   };
 
   const handleDeleteSubject = async (subject) => {
-    if (!window.confirm(`Are you sure you want to delete the subject "${subject}"? This will remove all associated questions.`)) return;
+    if (!window.confirm(`Are you sure you want to delete the subject "${subject.subject}"? This will remove all associated questions.`)) return;
     const token = localStorage.getItem('token');
     try {
-      await axios.post(`${BASE_URL}/delete-subject`, { subject }, {
+      await axios.post(`${BASE_URL}/delete-subject`, { subject: subject.subject }, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setSubjects(subjects.filter(s => s !== subject));
+      setSubjects(subjects.filter((s) => s.subject !== subject.subject));
     } catch (err) {
       setError('Failed to delete subject: ' + (err.response?.data?.error || err.message));
       console.error('Delete subject error:', err);
@@ -72,15 +91,15 @@ function SubjectSelection() {
         </div>
       ) : (
         <div className="subject-cards">
-          {subjects.map(subject => (
+          {subjects.map((subject) => (
             <div
-              key={subject}
+              key={subject.id || subject.subject}
               className="subject-card"
               style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px' }}
             >
               <div>
-                <h3>{subject}</h3>
-                <p>Study {subject} questions</p>
+                <h3>{subject.subject} {subject.type === 'library' ? '(Library)' : ''}</h3>
+                <p>Study {subject.question_count} questions</p>
               </div>
               <button
                 onClick={() => handleSubjectSelect(subject)}
@@ -91,24 +110,26 @@ function SubjectSelection() {
                   border: 'none',
                   borderRadius: '5px',
                   cursor: 'pointer',
-                  marginRight: '10px'
+                  marginRight: '10px',
                 }}
               >
                 Study
               </button>
-              <button
-                onClick={() => handleDeleteSubject(subject)}
-                style={{
-                  padding: '5px 10px',
-                  backgroundColor: '#ff4500',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}
-              >
-                Delete
-              </button>
+              {subject.type === 'subject' && (
+                <button
+                  onClick={() => handleDeleteSubject(subject)}
+                  style={{
+                    padding: '5px 10px',
+                    backgroundColor: '#ff4500',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Delete
+                </button>
+              )}
             </div>
           ))}
         </div>

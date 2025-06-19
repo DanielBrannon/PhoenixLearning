@@ -4,65 +4,76 @@ import axios from 'axios';
 import silhouetteImage from './assets/phoenix-rebirth-silhouette.png';
 import Header from './Header';
 
-const BASE_URL = 'https://phoenix-learning-backend-b4ea6248c81b.herokuapp.com';
+const BASE_URL = 'https://phoenix-learning-backend.herokuapp.com'; // Updated to match your clarification
 
 function UploadStudyLibrary() {
-  const [questions, setQuestions] = useState([]);
-  const [selectedQuestions, setSelectedQuestions] = useState([]);
   const [libraryName, setLibraryName] = useState('');
+  const [questions, setQuestions] = useState([]);
+  const [libraries, setLibraries] = useState([]);
+  const [selectedQuestions, setSelectedQuestions] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log('UploadStudyLibrary mounted');
     const token = localStorage.getItem('token');
     if (!token) {
       navigate('/login', { replace: true });
       return;
     }
 
-    const fetchQuestions = async () => {
+    const fetchData = async () => {
       try {
-        const res = await axios.get(`${BASE_URL}/questions/all`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        console.log('Full API response:', res);
-        console.log('Response data:', res.data);
-        const fetchedQuestions = Array.isArray(res?.data?.questions) ? res.data.questions : [];
-        setQuestions(fetchedQuestions);
-        if (fetchedQuestions.length === 0 && !res.data.error) {
-          setError('No questions found. Create some first!');
-        }
+        const [questionsRes, librariesRes] = await Promise.all([
+          axios.get(`${BASE_URL}/questions/all`, { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get(`${BASE_URL}/study-libraries`, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+        setQuestions(Array.isArray(questionsRes?.data?.questions) ? questionsRes.data.questions : []);
+        setLibraries(Array.isArray(librariesRes?.data) ? librariesRes.data : []);
       } catch (err) {
-        console.error('Fetch questions error:', {
-          message: err.message,
-          response: err.response?.data,
-          status: err.response?.status
-        });
-        setError('Failed to load questions: ' + (err.response?.data?.error || err.message));
-        setQuestions([]);
+        console.error('Fetch data error:', err);
+        setError('Failed to load data: ' + (err.response?.data?.error || err.message));
       } finally {
         setLoading(false);
       }
     };
-    fetchQuestions();
-
-    return () => {
-      console.log('UploadStudyLibrary unmounted');
-    };
+    fetchData();
   }, [navigate]);
 
-  useEffect(() => {
-    console.log('State updated - questions:', questions, 'error:', error, 'loading:', loading);
-  }, [questions, error, loading]);
-
   const handleQuestionToggle = (questionId) => {
-    setSelectedQuestions(prev =>
+    setSelectedQuestions((prev) =>
       prev.includes(questionId)
-        ? prev.filter(id => id !== questionId)
+        ? prev.filter((id) => id !== questionId)
         : [...prev, questionId]
     );
+  };
+
+  const handleDeleteLibrary = async (libraryId) => {
+    const token = localStorage.getItem('token');
+    try {
+      await axios.delete(`${BASE_URL}/delete-study-library/${libraryId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setLibraries((prev) => prev.filter((lib) => lib.id !== libraryId));
+    } catch (err) {
+      setError('Failed to delete library: ' + err.message);
+    }
+  };
+
+  const handleLoadLibrary = async (libraryId) => {
+    const token = localStorage.getItem('token');
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/load-study-library/${libraryId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      console.log('Library loaded:', response.data);
+      // Navigate to study page or refresh subjects (adjust based on your app flow)
+      navigate('/select-subject'); // Or /study with library context
+    } catch (err) {
+      setError('Failed to load library: ' + err.message);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -79,16 +90,15 @@ function UploadStudyLibrary() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`${BASE_URL}/upload-study-library`, {
-        name: libraryName,
-        question_ids: selectedQuestions
-      }, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      console.log('Library uploaded successfully');
+      await axios.post(
+        `${BASE_URL}/upload-study-library`,
+        { name: libraryName, question_ids: selectedQuestions },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setLibraryName('');
+      setSelectedQuestions([]);
       navigate('/select-subject');
     } catch (err) {
-      console.error('Upload error:', err.response?.data || err.message);
       setError('Failed to upload library: ' + (err.response?.data?.error || err.message));
     } finally {
       setLoading(false);
@@ -113,7 +123,7 @@ function UploadStudyLibrary() {
         <h2>Upload Study Library</h2>
         {error && <p className="error">{error}</p>}
         <form onSubmit={handleSubmit}>
-          <div>
+          <div className="card">
             <label>Library Name:</label>
             <input
               type="text"
@@ -122,30 +132,50 @@ function UploadStudyLibrary() {
               required
             />
           </div>
-          <div>
-            <h3>Select Questions to Include:</h3>
-            {questions.length === 0 && !error ? (
-              <p>No questions available. Create some first!</p>
-            ) : (
-              questions.length > 0 && (
-                <ul style={{ listStyleType: 'none', padding: 0 }}>
-                  {questions.map(question => (
-                    <li key={question.id} style={{ margin: '10px 0' }}>
-                      <label>
-                        <input
-                          type="checkbox"
-                          checked={selectedQuestions.includes(question.id)}
-                          onChange={() => handleQuestionToggle(question.id)}
-                        />
-                        {question.text} (Subject: {question.topic})
-                      </label>
-                    </li>
-                  ))}
-                </ul>
-              )
-            )}
-          </div>
-          <button type="submit" disabled={loading}>Upload Library</button>
+          <h3>Existing Libraries:</h3>
+          {libraries.length > 0 ? (
+            <div className="library-cards">
+              {libraries.map((library) => (
+                <div key={library.id} className="card">
+                  <span>{library.name} ({library.question_count || 0} questions)</span>
+                  <button onClick={() => handleLoadLibrary(library.id)}>Load</button>
+                  <button
+                    onClick={() => handleDeleteLibrary(library.id)}
+                    style={{ color: 'red', border: 'none', background: 'none', cursor: 'pointer', marginLeft: '10px' }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p>No libraries found.</p>
+          )}
+          <h3>Select Questions to Include:</h3>
+          {questions.length === 0 ? (
+            <p>No questions available. Create some first!</p>
+          ) : (
+            <div className="question-cards">
+              {questions.map((question) => (
+                <div
+                  key={question.id}
+                  className={`card ${selectedQuestions.includes(question.id) ? 'selected' : ''}`}
+                  onClick={() => handleQuestionToggle(question.id)}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedQuestions.includes(question.id)}
+                    onChange={() => handleQuestionToggle(question.id)}
+                    style={{ marginRight: '10px' }}
+                  />
+                  <span>{question.text} (Subject: {question.topic})</span>
+                </div>
+              ))}
+            </div>
+          )}
+          <button type="submit" disabled={loading}>
+            {loading ? 'Uploading...' : 'Upload Library'}
+          </button>
         </form>
         <p>
           <a href="/select-subject" style={{ color: '#ff4500' }}>Back to Subject Selection</a>

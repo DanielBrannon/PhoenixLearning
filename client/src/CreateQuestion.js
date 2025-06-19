@@ -91,6 +91,7 @@ function CreateQuestion() {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        withCredentials: true,
         timeout: 10000,
       });
       setText('');
