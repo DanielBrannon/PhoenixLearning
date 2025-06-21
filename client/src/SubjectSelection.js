@@ -8,53 +8,56 @@ function SubjectSelection() {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const BASE_URL = 'https://phoenix-learning-backend.herokuapp.com'; // Corrected per your clarification
+  const BASE_URL = 'https://phoenix-learning-backend-b4ea6248c81b.herokuapp.com';
 
-useEffect(() => {
-  setIsLoading(true);
-  const token = localStorage.getItem('token');
-  if (!token) {
-    console.log('No token found, redirecting to login');
-    navigate('/login', { replace: true });
-    return;
-  }
-  console.log('Using token for subjects:', token);
+  useEffect(() => {
+    setIsLoading(true);
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('No token found, redirecting to login');
+      navigate('/login', { replace: true });
+      return;
+    }
+    console.log('Using token for subjects:', token);
 
-  const fetchSubjectsAndLibraries = async () => {
-    try {
-      const [subjectsRes, librariesRes] = await Promise.all([
-        axios.get(`${BASE_URL}/user-subjects`, {
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true, // Add this line
-        }),
-        axios.get(`${BASE_URL}/study-libraries`, {
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true, // Add this line
-        }),
-      ]);
-      console.log('Subjects response:', subjectsRes.data);
-      console.log('Libraries response:', librariesRes.data);
-      const subjectsData = Array.isArray(subjectsRes.data) ? subjectsRes.data : subjectsRes.data?.data || [];
-      const librariesData = Array.isArray(librariesRes.data) ? librariesRes.data : librariesRes.data?.data || [];
-      const allSubjects = [
-        ...subjectsData.map((s) => ({ subject: s, question_count: 0, type: 'subject' })),
-        ...librariesData.map((lib) => ({
+    const fetchSubjectsAndLibraries = async () => {
+      try {
+        const [subjectsRes, librariesRes] = await Promise.all([
+          axios.get(`${BASE_URL}/user-subjects`, {
+            headers: { Authorization: `Bearer ${token}` },
+            withCredentials: true,
+          }),
+          axios.get(`${BASE_URL}/study-libraries`, {
+            headers: { Authorization: `Bearer ${token}` },
+            withCredentials: true,
+          }),
+        ]);
+        console.log('Raw subjects response:', subjectsRes.data);
+        console.log('Raw libraries response:', librariesRes.data);
+        const subjectsData = Array.isArray(subjectsRes.data) ? subjectsRes.data : subjectsRes.data?.data || [];
+        const librariesData = Array.isArray(librariesRes.data) ? librariesRes.data : librariesRes.data?.data || [];
+
+        // Deduplicate and combine, ensuring unique subjects
+        const uniqueSubjects = new Map();
+        subjectsData.forEach(s => uniqueSubjects.set(s, { subject: s, question_count: 0, type: 'subject' }));
+        librariesData.forEach(lib => uniqueSubjects.set(lib.name || lib.library_name, {
           id: lib.id || lib.library_id,
           subject: lib.name || lib.library_name,
           question_count: lib.question_count || 0,
           type: 'library',
-        })),
-      ];
-      setSubjects(allSubjects);
-    } catch (err) {
-      console.error('Fetch subjects or libraries error:', err.response?.data || err.message);
-      setError('Failed to load subjects or libraries: ' + (err.response?.data?.error || err.message || 'Unknown error'));
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  fetchSubjectsAndLibraries();
-}, [navigate]);
+        }));
+        const allSubjects = Array.from(uniqueSubjects.values());
+        console.log('Combined subjects:', allSubjects);
+        setSubjects(allSubjects);
+      } catch (err) {
+        console.error('Fetch error details:', err.response?.data || err.message, err.config);
+        setError('Failed to load subjects or libraries: ' + (err.response?.data?.error || err.message || 'Unknown error'));
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchSubjectsAndLibraries();
+  }, [navigate]);
 
   const handleSubjectSelect = (subject) => {
     navigate('/study', { state: { selectedSubject: subject.subject, type: subject.type, id: subject.id } });
@@ -66,11 +69,12 @@ useEffect(() => {
     try {
       await axios.post(`${BASE_URL}/delete-subject`, { subject: subject.subject }, {
         headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true,
       });
       setSubjects(subjects.filter((s) => s.subject !== subject.subject));
     } catch (err) {
+      console.error('Delete subject error:', err.response?.data || err.message, err.config);
       setError('Failed to delete subject: ' + (err.response?.data?.error || err.message));
-      console.error('Delete subject error:', err);
     }
   };
 
