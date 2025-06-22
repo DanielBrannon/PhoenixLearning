@@ -47,7 +47,7 @@ function SubjectSelection() {
           type: 'library',
         }));
         const allSubjects = Array.from(uniqueSubjects.values());
-        console.log('Combined subjects:', allSubjects);
+        console.log('Combined subjects with types:', allSubjects);
         setSubjects(allSubjects);
       } catch (err) {
         console.error('Fetch error details:', err.response?.data || err.message, err.config);
@@ -71,7 +71,7 @@ function SubjectSelection() {
         headers: { Authorization: `Bearer ${token}` },
         withCredentials: true,
       });
-      setSubjects(subjects.filter((s) => s.subject !== subject.subject));
+      setSubjects(subjects.filter((s) => s.subject !== subject.subject || s.type !== 'subject'));
     } catch (err) {
       console.error('Delete subject error:', err.response?.data || err.message, err.config);
       setError('Failed to delete subject: ' + (err.response?.data?.error || err.message));
@@ -103,7 +103,7 @@ function SubjectSelection() {
             >
               <div>
                 <h3>{subject.subject} {subject.type === 'library' ? '(Library)' : ''}</h3>
-                <p>Study {subject.question_count} questions</p>
+                <p>Questions: {subject.question_count} {subject.type === 'subject' ? '(Editable)' : ''}</p>
               </div>
               <button
                 onClick={() => handleSubjectSelect(subject)}

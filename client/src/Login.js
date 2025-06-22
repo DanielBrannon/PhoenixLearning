@@ -22,18 +22,17 @@ function Login() {
         {
           headers: {
             'Content-Type': 'application/json',
-            // Add any custom headers if required by your backend
           },
-          withCredentials: true, // Set to true if your backend uses cookies/session
+          withCredentials: true,
         }
       );
 
       const { token } = response.data;
-      localStorage.setItem('token', token); // Store token in localStorage
-      navigate('/select-subject'); // Redirect to subject selection on success
+      localStorage.setItem('token', token);
+      navigate('/select-subject');
     } catch (err) {
       const errorMessage = err.response?.data?.error || err.message || 'Login failed';
-      console.error('Login error:', err); // Log the full error for debugging
+      console.error('Login error:', err);
       setError(errorMessage);
     }
   };
@@ -44,26 +43,36 @@ function Login() {
       <div className="auth-card">
         <h2>Login</h2>
         <form onSubmit={handleSubmit}>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email"
-            required
-          />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            required
-          />
+          <div>
+            <label htmlFor="email">Email</label>
+            <input
+              type="email"
+              id="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter your email"
+              required
+              className="auth-input"
+            />
+          </div>
+          <div>
+            <label htmlFor="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter your password"
+              required
+              className="auth-input"
+            />
+          </div>
           <button type="submit" className="welcome-button">Login</button>
           {error && <p className="error">{error}</p>}
+          <p>
+            Don't have an account? <Link to="/register" className="link">Register</Link>
+          </p>
         </form>
-        <p>
-          Don't have an account? <Link to="/register" className="link">Register</Link>
-        </p>
       </div>
     </div>
   );

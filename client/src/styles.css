@@ -49,14 +49,22 @@
 
 .auth-card form label {
   display: block;
+  font-size: 16px; /* Slightly smaller than default input text */
+  font-weight: bold;
+  margin-bottom: 5px;
 }
 
-.auth-card form input {
-  padding: 10px;
-  width: 80%;
-  margin: 10px 0;
+.auth-card form .auth-input {
+  padding: 8px; /* Slightly smaller than 10px */
+  font-size: 14px; /* Slightly smaller text */
+  width: 100%; /* Equal length, overrides 80% for consistency */
+  margin: 5px 0;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-sizing: border-box;
 }
 
+/* Ensure welcome-button and link styles are consistent */
 .auth-card form button {
   padding: 10px 20px;
   font-size: 16px;
@@ -65,10 +73,16 @@
   border: none;
   border-radius: 5px;
   cursor: pointer;
+  width: 100%; /* Full width for button */
 }
 
 .auth-card p a {
   color: #ff4500;
+  text-decoration: none;
+}
+
+.auth-card p a:hover {
+  text-decoration: underline;
 }
 
 /* Settings Component */
