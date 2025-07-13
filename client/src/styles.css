@@ -27,12 +27,12 @@
 
 .auth-card {
   background-color: rgba(255, 255, 255, 0.9);
-  padding: 20px;
+  padding: 1.5%;
   border-radius: 10px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-  max-width: 400px;
-  width: 100%;
+  width: 75%;
   text-align: center;
+  max-width: 450px;
 }
 
 .auth-card h2 {
@@ -44,7 +44,7 @@
 }
 
 .auth-card form div {
-  margin: 10px 0;
+  margin: 0 5px;
 }
 
 .auth-card form label {
@@ -55,13 +55,14 @@
 }
 
 .auth-card form .auth-input {
-  padding: 8px; /* Slightly smaller than 10px */
-  font-size: 14px; /* Slightly smaller text */
-  width: 100%; /* Equal length, overrides 80% for consistency */
-  margin: 5px 0;
+  padding: 8px;
+  font-size: 14px;
+  width: 70%; /* Reduced from 100% to 75% of the card's width */
+  margin: 5px auto; /* Centers the input horizontally */
   border: 1px solid #ccc;
   border-radius: 5px;
   box-sizing: border-box;
+  text-align: center; /* Centers the text inside the input */
 }
 
 /* Ensure welcome-button and link styles are consistent */
@@ -73,7 +74,8 @@
   border: none;
   border-radius: 5px;
   cursor: pointer;
-  width: 100%; /* Full width for button */
+  width: 30%;
+  margin: 1.5%;
 }
 
 .auth-card p a {
@@ -313,10 +315,11 @@
 .study-card form label {
   display: block;
   margin-bottom: 10px;
+  margin-left: 3%;
 }
 
 .study-card form input {
-  padding: 10px;
+  margin: 10px;
   font-size: 16px;
   width: 80%;
   margin-bottom: 10px;
@@ -345,6 +348,9 @@
   color: red;
 }
 
+.study-card p {
+  padding: 3% 0;
+}
 .nav-links {
   margin-top: 20px;
 }
@@ -731,6 +737,7 @@
   font-size: 1.75rem;
   font-weight: 700;
   color: #ffa500; /* Phoenix orange */
+  margin-left: 5px;
 }
 
 .header-nav {
@@ -974,7 +981,7 @@
 }
 
 .auth-card {
-  max-width: 600px;
+  max-width: 450px;
   margin: 0 auto;
   padding: 20px;
   background: rgba(255, 255, 255, 0.9);
@@ -1014,4 +1021,10 @@
 .error {
   color: red;
   margin-top: 10px;
+}
+div[name="topic"] {
+  padding-bottom: 5px;
+}
+input[type="text"] {
+  width: 60%;
 }
