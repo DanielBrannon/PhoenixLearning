@@ -31,15 +31,21 @@ function Study() {
       return;
     }
 
-    axios.get(`${BASE_URL}/settings`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(res => {
-        setReviewInterval(res.data.review_interval || 10);
-        setQuestionsBeforeAnswer(res.data.questions_before_answer || 5);
-      })
-      .catch(err => console.error('Error fetching settings:', err))
-      .finally(() => fetchInitialQuestions());
+    const fetchSettings = async () => {
+      try {
+        const response = await axios.get(`${BASE_URL}/settings`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setReviewInterval(response.data.review_interval || 10);
+        setQuestionsBeforeAnswer(response.data.questions_before_answer || 5);
+      } catch (err) {
+        console.error('Error fetching settings:', err);
+      } finally {
+        fetchInitialQuestions();
+      }
+    };
+
+    fetchSettings();
   }, [selectedSubject, navigate]);
 
   const fetchInitialQuestions = async () => {
@@ -47,22 +53,29 @@ function Study() {
     setCurrentIndex(0);
     setStep(0);
     setError(null);
+    setUserAnswers({});
+    setResults(null);
+    setSelectedChoice(null);
+    setChoiceFeedback(null);
 
     const token = localStorage.getItem('token');
     const endpoint = selectedSubject === 'all'
       ? 'questions/random'
       : `questions/random/${encodeURIComponent(selectedSubject)}`;
-    const fullUrl = `${BASE_URL}/${endpoint}?count=${questionsBeforeAnswer}`; // Add count parameter
+    const fullUrl = `${BASE_URL}/${endpoint}?count=${questionsBeforeAnswer}`;
 
     try {
       const response = await axios.get(fullUrl, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const questions = response.data.questions || [response.data]; // Handle single or array response
+      const questions = Array.isArray(response.data.questions)
+        ? response.data.questions
+        : [response.data]; // Handle single question or array
       if (questions.length === 0) {
         setError(`No questions available for subject: ${selectedSubject}`);
         return;
       }
+      console.log('Fetched questions with image_urls:', questions.map(q => ({ id: q.id, image_url: q.image_url })));
       setQuestionsQueue(questions);
     } catch (err) {
       setError('Failed to load questions: ' + (err.response?.data?.error || err.message));
@@ -97,7 +110,7 @@ function Study() {
   const handleAnswerChange = (questionId, answer) => {
     setUserAnswers(prev => ({
       ...prev,
-      [questionId]: answer
+      [questionId]: answer,
     }));
   };
 
@@ -130,12 +143,11 @@ function Study() {
       batchResults[question.id] = isCorrect ? 'Correct!' : `Incorrect. The correct answer is: ${question.answer}`;
 
       try {
-        await axios.post(`${BASE_URL}/progress`, {
-          question_id: question.id,
-          correct: isCorrect
-        }, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        await axios.post(
+          `${BASE_URL}/progress`,
+          { question_id: question.id, correct: isCorrect },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
       } catch (err) {
         console.error('Error saving progress for question', question.id, ':', err.message);
       }
@@ -151,26 +163,12 @@ function Study() {
       setIsReviewing(true);
     } else {
       setTimeout(() => {
-        setQuestionsQueue([]);
-        setCurrentIndex(0);
-        setStep(0);
-        setUserAnswers({});
-        setResults(null);
-        setSelectedChoice(null);
-        setChoiceFeedback(null);
         fetchInitialQuestions();
       }, 500);
     }
   };
 
   const handleNextBatch = () => {
-    setQuestionsQueue([]);
-    setCurrentIndex(0);
-    setStep(0);
-    setUserAnswers({});
-    setResults(null);
-    setSelectedChoice(null);
-    setChoiceFeedback(null);
     fetchInitialQuestions();
   };
 
@@ -178,24 +176,33 @@ function Study() {
     setReviewResults(results);
     setIsReviewing(false);
     setSessionQuestions([]);
+    fetchInitialQuestions();
   };
 
-  if (error) return <div className="error">{error}</div>;
+  if (error) {
+    return (
+      <div className="study-container">
+        <Header />
+        <div className="error">{error}</div>
+        <button onClick={fetchInitialQuestions}>Retry</button>
+      </div>
+    );
+  }
   if (!questionsQueue.length && !isReviewing && !reviewResults) return <div>Loading...</div>;
 
   const currentQuestion = questionsQueue[currentIndex];
 
   if (reviewResults) {
     return (
-      <div className="review-results-container">
+      <div className="study-container">
         <Header />
-        <h2>Review Test Results</h2>
-        <p>
-          You got {reviewResults.filter(r => r.correct).length} out of {reviewResults.length} correct!
-        </p>
-        <button onClick={() => { setReviewResults(null); handleNextBatch(); }}>
-          Continue Studying
-        </button>
+        <div className="study-card">
+          <h2>Review Test Results</h2>
+          <p>
+            You got {reviewResults.filter(r => r.correct).length} out of {reviewResults.length} correct!
+          </p>
+          <button onClick={handleNextBatch}>Continue Studying</button>
+        </div>
       </div>
     );
   }
@@ -209,7 +216,7 @@ function Study() {
       <div className="study-container">
         <Header />
         <div className="study-card">
-          <h1 className="step-2">Answer the Questions</h1>
+          <h1>Answer the Questions</h1>
           <form onSubmit={handleBatchSubmit}>
             {questionsQueue.map((q, index) => (
               <div key={q.id} style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -236,7 +243,7 @@ function Study() {
                     border: 'none',
                     borderRadius: '5px',
                     cursor: 'pointer',
-                    marginLeft: '10px'
+                    marginLeft: '10px',
                   }}
                 >
                   Delete
@@ -256,15 +263,14 @@ function Study() {
       <Header />
       {step === 0 && (
         <div className="study-card">
-          <h1 className="step-0">{currentQuestion.text}</h1>
+          <h1>{currentQuestion.text}</h1>
           {(currentQuestion.choice1 || currentQuestion.choice2 || currentQuestion.choice3 || currentQuestion.answer) && (
             <div>
               <p>Select the correct answer:</p>
               <div style={{ margin: '10px 0' }}>
-                {/* Combine and randomize the four options: answer, choice1, choice2, choice3 */}
-                {[...[currentQuestion.answer, currentQuestion.choice1, currentQuestion.choice2, currentQuestion.choice3]]
-                  .filter((choice, index, self) => choice && self.indexOf(choice) === index) // Remove duplicates
-                  .sort(() => Math.random() - 0.5) // Randomize order
+                {[...new Set([currentQuestion.answer, currentQuestion.choice1, currentQuestion.choice2, currentQuestion.choice3])]
+                  .filter(choice => choice) // Remove null/undefined
+                  .sort(() => Math.random() - 0.5)
                   .map((choice, index) => (
                     <button
                       key={index}
@@ -272,11 +278,13 @@ function Study() {
                       style={{
                         padding: '10px',
                         margin: '5px',
-                        backgroundColor: selectedChoice === choice ? (choice === currentQuestion.answer ? '#4caf50' : '#f44336') : '#ffa500',
+                        backgroundColor: selectedChoice === choice
+                          ? choice === currentQuestion.answer ? '#4caf50' : '#f44336'
+                          : '#ffa500',
                         color: '#fff',
                         border: 'none',
                         borderRadius: '5px',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
                       }}
                       disabled={selectedChoice !== null}
                     >
@@ -287,18 +295,18 @@ function Study() {
               {choiceFeedback && <p style={{ color: choiceFeedback.includes('Correct') ? 'green' : 'red' }}>{choiceFeedback}</p>}
             </div>
           )}
-          {!currentQuestion.choice1 && !currentQuestion.choice2 && !currentQuestion.choice3 && !currentQuestion.answer && (
-            <p><strong>Answer:</strong> {currentQuestion.answer}</p>
-          )}
-          <button onClick={handleNextStep} disabled={(currentQuestion.choice1 || currentQuestion.choice2 || currentQuestion.choice3 || currentQuestion.answer) && !selectedChoice}>
+          <button
+            onClick={handleNextStep}
+            disabled={(currentQuestion.choice1 || currentQuestion.choice2 || currentQuestion.choice3 || currentQuestion.answer) && !selectedChoice}
+          >
             Next
           </button>
         </div>
       )}
       {step === 1 && (
         <div className="study-card">
-          <h1 className="step-1">Information</h1>
-          <p>{currentQuestion.content}</p>
+          <h1>Information</h1>
+          <p>{currentQuestion.content || 'No additional content available.'}</p>
           {currentQuestion.image_url && (
             <div>
               <img
@@ -306,14 +314,13 @@ function Study() {
                 alt="Question Information"
                 style={{ maxWidth: '100%', marginTop: '10px' }}
                 onError={(e) => {
-                  console.error('Image load error:', e);
-                  // Fallback message
-                  return <p>Image unavailable (stored in temporary location).</p>;
+                  console.error('Image load error:', e, 'URL:', currentQuestion.image_url);
+                  e.target.style.display = 'none'; // Hide broken image
                 }}
               />
             </div>
           )}
-          <button className="step-1" onClick={handleNextStep}>Next</button>
+          <button onClick={handleNextStep}>Next</button>
         </div>
       )}
     </div>
